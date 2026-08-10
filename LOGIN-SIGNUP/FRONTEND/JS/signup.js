@@ -1,35 +1,73 @@
 const signupForm = document.getElementById("signupForm");
 
-signupForm.addEventListener("submit", function (event) {
+signupForm.addEventListener("submit", async function (event) {
 
     event.preventDefault();
 
-    const name = document.getElementById("name").value;
-    const email = document.getElementById("email").value;
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
     const confirmPassword =
         document.getElementById("confirmPassword").value;
 
+    const message = document.getElementById("message");
+
+
     // Check passwords
     if (password !== confirmPassword) {
-        document.getElementById("message").textContent =
-            "Passwords do not match.";
+
+        message.textContent = "Passwords do not match.";
 
         return;
     }
 
-    // Create user object
-    const user = {
-        name: name,
-        email: email,
-        password: password
-    };
 
-    // Store user in browser
-    localStorage.setItem("user", JSON.stringify(user));
+    try {
 
-    document.getElementById("message").textContent =
-        "Account created successfully!";
+        const response = await fetch(
+            "http://localhost:5297/api/auth/signup",
+            {
+                method: "POST",
 
-    console.log("User stored:", user);
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    name: name,
+                    email: email,
+                    password: password
+                })
+            }
+        );
+
+
+        const data = await response.json();
+
+
+        if (response.ok) {
+
+            message.textContent = data.message;
+
+            console.log("Signup successful.");
+
+        }
+        else {
+
+            message.textContent =
+                data.message || "Signup failed.";
+
+            console.log("Signup failed.");
+
+        }
+
+    }
+    catch (error) {
+
+        console.error("Error:", error);
+
+        message.textContent =
+            "Could not connect to the server.";
+    }
+
 });
