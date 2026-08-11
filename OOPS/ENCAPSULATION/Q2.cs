@@ -1,53 +1,56 @@
-//Create a Student class with private fields for name, age, and rollNumber. Provide public properties to get and set these values. Create a program to display student details.
+//Create an Employee class with private fields employeeId, name, and salary. Use properties to access them. Create an employee object and display its information.
 
 using System;
 
 namespace ENCAPSULATION
 {
-    public class Q1
+    public class Q2
     {
         public static void Main(string[] args)
         {
-            Student s1 = new Student("Satya", 20, 101);
-            Console.WriteLine($"Name: {s1.Name}, Age: {s1.Age}, Roll: {s1.RollNumber}");
-            s1.Age = 21;
-            Console.WriteLine($"Updated Age: {s1.Age}");
+            Employee e1 = new Employee(1796, "Satya", 10100);
+            
+            // ✅ Properties are PascalCase - use them!
+            Console.WriteLine($"Name: {e1.Name}, EmpId: {e1.EmpId}, Salary: {e1.Salary}");
+            
+            // ✅ Update using property
+            e1.Salary = 12100;
+            Console.WriteLine($"Updated Salary: {e1.Salary}");
         }
     }
 
-    public class Student
+    public class Employee
     {
-        private string name;
-        private int age;
-        private int rollnumber;
+        // ✅ Private fields with underscore prefix
+        private int _empId;
+        private string _name;
+        private int _salary;
 
-        // Constructor
-        public Student(string name, int age, int rollnumber)
+        // Constructor - assigns to private fields note that public and private field should not have same name
+        public Employee(int empId, string name, int salary)
         {
-            this.name = name;
-            this.age = age;
-            this.rollnumber = rollnumber;
+            _name = name;
+            _empId = empId;
+            _salary = salary;
         }
+        
+        // ✅ Public properties with PascalCase
         public string Name
         {
-            get { return name; }
-            set { name = value; }
+            get { return _name; }
+            set { _name = value; }
         }
 
-        public int Age
+        public int EmpId
         {
-            get { return age; }
-            set 
-            { 
-                if (value > 0)  
-                    age = value; 
-            }
+            get { return _empId; }
+            set { _empId = value; }
         }
 
-        public int RollNumber
+        public int Salary
         {
-            get { return rollnumber; }
-            set { rollnumber = value; }
+            get { return _salary; }
+            set { _salary = value; }
         }
     }
 }
