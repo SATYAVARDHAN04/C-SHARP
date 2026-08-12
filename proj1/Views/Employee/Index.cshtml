@@ -1,0 +1,21 @@
+@model IEnumerable<Employee>
+
+<h1>List of students</h1>
+<table>
+    <tr>
+        <th>EmpID</th>
+        <th>Name</th>
+        <th>Age</th>
+    </tr>
+    @foreach(var emp in Model) {
+        <tr>
+            <td>@emp.Empid</td>
+            <td>@emp.Name</td>
+            <td>@emp.age</td>
+        </tr>
+    }
+</table>
+
+<div>
+    
+</div>
