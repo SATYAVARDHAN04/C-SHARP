@@ -42,11 +42,46 @@ app.Run(async (HttpContext context) =>
             await context.Response.WriteAsync($"404 - Page '{context.Request.Path}' not found");
         }
     }
+    else if (context.Request.Method == "POST")
+    {
+        if (context.Request.Path.StartsWithSegments("/employees"))
+        {
+            try
+            {
+                // Read the body
+                using var reader = new StreamReader(context.Request.Body);
+                var body = await reader.ReadToEndAsync();
+                
+                // Deserialize to Employee
+                var employee = JsonSerializer.Deserialize<Employee>(body);
+                
+                // Validate
+                if (employee == null)
+                {
+                    context.Response.StatusCode = 400;
+                    await context.Response.WriteAsync("Invalid employee data");
+                    return;
+                }
+                
+                // Add to repository
+                EmployeesRepository.AddEmployee(employee);
+                
+                // Send success response
+                context.Response.StatusCode = 201; // Created
+                await context.Response.WriteAsync($"Employee {employee.Name} added successfully!");
+            }
+            catch (JsonException)
+            {
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsync("Invalid JSON format");
+            }
+        }
+    }
     else
     {
-        // Not a GET request - return 405 Method Not Allowed
+        // Not a GET,POST request - return 405 Method Not Allowed
         context.Response.StatusCode = 405;
-        await context.Response.WriteAsync("405 - Method Not Allowed. Only GET requests are supported.");
+        await context.Response.WriteAsync("405 - Method Not Allowed. Only GET,POST requests are supported.");
     }
 });
 
