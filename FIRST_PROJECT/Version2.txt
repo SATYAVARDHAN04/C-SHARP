@@ -1,190 +1,160 @@
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using System;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
-
 app.Run(async (HttpContext context) =>
 {
-    if (context.Request.Path.StartsWithSegments("/employees"))
+    if(context.Request.Path.StartsWithSegments("/employees"))
     {
         if (context.Request.Method == "GET")
         {
-            context.Response.StatusCode = 200; // ✅ Set status first
-            context.Response.ContentType = "text/html";
-            
             var employees = EmployeesRepository.GetEmployees();
             
-            await context.Response.WriteAsync("<b>Employee List:</b>\r\n");
+            await context.Response.WriteAsync("Employee List:\r\n");
             await context.Response.WriteAsync("================\r\n");
             
-            await context.Response.WriteAsync("<ol>\r\n");
-            foreach (var employee in employees)
+            foreach (var employee in employees) 
             {
                 await context.Response.WriteAsync(
-                    $"<li>{employee.Id}. {employee.Name} - {employee.Position} (${employee.Salary})</li>\r\n"
+                    $"{employee.Id}. {employee.Name} - {employee.Position} (${employee.Salary})\r\n"
                 );
             }
-            await context.Response.WriteAsync("</ol>\r\n");
         }
-        else if (context.Request.Method == "POST")
+        else if(context.Request.Method == "POST")
         {
             try
             {
+                // Read the body
                 using var reader = new StreamReader(context.Request.Body);
                 var body = await reader.ReadToEndAsync();
+                
+                // Deserialize to Employee
                 var employee = JsonSerializer.Deserialize<Employee>(body);
                 
+                // Validate
                 if (employee == null)
                 {
                     context.Response.StatusCode = 400;
-                    context.Response.ContentType = "text/plain";
                     await context.Response.WriteAsync("Invalid employee data");
-                    return; // ✅ Stop execution
+                    return;
                 }
                 
+                // Add to repository
                 EmployeesRepository.AddEmployee(employee);
                 
-                context.Response.StatusCode = 201;
-                context.Response.ContentType = "text/plain"; // ✅ Added Content-Type
+                // Send success response
+                context.Response.StatusCode = 201; // Created
                 await context.Response.WriteAsync($"Employee {employee.Name} added successfully!");
             }
             catch (JsonException)
             {
                 context.Response.StatusCode = 400;
-                context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync("Invalid JSON format");
             }
         }
-        else if (context.Request.Method == "PUT")
+        else if(context.Request.Method == "PUT")
         {
             try
             {
+                // 1. Read and deserialize
                 using var reader = new StreamReader(context.Request.Body);
                 var body = await reader.ReadToEndAsync();
                 var employee = JsonSerializer.Deserialize<Employee>(body);
                 
+                // 2. Validate
                 if (employee == null || employee.Id <= 0)
                 {
-                    context.Response.StatusCode = 400;
-                    context.Response.ContentType = "text/plain";
+                    context.Response.StatusCode = 400; // Bad Request
                     await context.Response.WriteAsync("Invalid employee data");
                     return;
                 }
                 
+                // 3. Attempt update
                 var result = EmployeesRepository.UpdateEmployee(employee);
                 
+                // 4. Send appropriate response
                 if (result)
                 {
-                    // ✅ Option 1: 204 No Content (recommended for PUT when no response needed)
-                    context.Response.StatusCode = 204;
-                    // No body
-                    return;
-                    
-                    // ✅ Option 2: 200 OK with response (if you want to return data)
-                    // context.Response.StatusCode = 200;
-                    // context.Response.ContentType = "application/json";
-                    // var json = JsonSerializer.Serialize(employee);
-                    // await context.Response.WriteAsync(json);
+                    context.Response.StatusCode = 200; // OK
+                    context.Response.ContentType = "application/json";
+                    var json = JsonSerializer.Serialize(employee);
+                    await context.Response.WriteAsync(json);
                 }
                 else
                 {
-                    context.Response.StatusCode = 404;
-                    context.Response.ContentType = "text/plain";
+                    context.Response.StatusCode = 404; // Not Found
                     await context.Response.WriteAsync($"Employee with ID {employee.Id} not found");
                 }
             }
             catch (JsonException)
             {
-                context.Response.StatusCode = 400;
-                context.Response.ContentType = "text/plain";
+                context.Response.StatusCode = 400; // Bad Request
                 await context.Response.WriteAsync("Invalid JSON format");
             }
             catch (Exception ex)
             {
-                context.Response.StatusCode = 500;
-                context.Response.ContentType = "text/plain";
+                context.Response.StatusCode = 500; // Internal Server Error
                 await context.Response.WriteAsync($"Error: {ex.Message}");
             }
         }
-        else if (context.Request.Method == "DELETE")
+        else if(context.Request.Method == "DELETE")
         {
             try
             {
+                // 1. Check if ID parameter exists
                 if (!context.Request.Query.ContainsKey("id"))
                 {
-                    context.Response.StatusCode = 400;
-                    context.Response.ContentType = "text/plain";
+                    context.Response.StatusCode = 400; // Bad Request
                     await context.Response.WriteAsync("Missing 'id' parameter. Use ?id=number");
                     return;
                 }
                 
+                // 2. Get and parse ID
                 var id = context.Request.Query["id"].ToString();
                 if (!int.TryParse(id, out int employeeId))
                 {
-                    context.Response.StatusCode = 400;
-                    context.Response.ContentType = "text/plain";
+                    context.Response.StatusCode = 400; // Bad Request
                     await context.Response.WriteAsync($"Invalid ID format: '{id}'. ID must be a number.");
                     return;
                 }
                 
-                // ✅ Check authorization first
-                if (context.Request.Headers["Authorization"] != "frank")
-                {
-                    context.Response.StatusCode = 401; // Unauthorized
-                    context.Response.ContentType = "text/plain";
-                    await context.Response.WriteAsync("Unauthorized - Invalid Authorization header");
-                    return;
-                }
-                
+                // 3. Attempt deletion
                 var result = EmployeesRepository.DeleteEmployee(employeeId);
+                
+                // 4. Send appropriate response
                 if (result)
                 {
-                    // ✅ 204 No Content - no body
-                    context.Response.StatusCode = 204;
-                    // No body for 204
-                    return;
+                    context.Response.StatusCode = 204; // No Content
+                    // 204 status usually doesn't have a body, but we'll keep it for learning
+                    await context.Response.WriteAsync($"Employee with ID {employeeId} deleted successfully.");
                 }
                 else
                 {
-                    context.Response.StatusCode = 404;
-                    context.Response.ContentType = "text/plain";
+                    context.Response.StatusCode = 404; // Not Found
                     await context.Response.WriteAsync($"Employee with ID {employeeId} not found.");
                 }
             }
             catch (Exception ex)
             {
-                context.Response.StatusCode = 500;
-                context.Response.ContentType = "text/plain";
+                context.Response.StatusCode = 500; // Internal Server Error
                 await context.Response.WriteAsync($"Error: {ex.Message}");
             }
         }
         else
         {
+            // Not a GET,POST,PUT,DELETE request - return 405 Method Not Allowed
             context.Response.StatusCode = 405;
-            context.Response.ContentType = "text/plain";
-            await context.Response.WriteAsync("405 - Method Not Allowed. Only GET, POST, PUT, DELETE requests are supported.");
+            await context.Response.WriteAsync("405 - Method Not Allowed. Only GET,POST,PUT,DELETE requests are supported.");
         }
-    }
-    else if (context.Request.Path.StartsWithSegments("/redirection"))
-    {
-        // ✅ Correct way - permanent redirect to /employees
-        context.Response.Redirect("/employees", permanent: true);
-        // Redirect() already sets status code (301) and Location header
-        return;
     }
     else if (context.Request.Path == "/")
     {
-        context.Response.StatusCode = 200;
-        context.Response.ContentType = "text/plain";
         await context.Response.WriteAsync("Welcome to Employee API");
     }
     else
     {
         context.Response.StatusCode = 404;
-        context.Response.ContentType = "text/plain";
         await context.Response.WriteAsync("Page not found");
     }
 });
@@ -202,30 +172,26 @@ static class EmployeesRepository
 
     public static List<Employee> GetEmployees() => employees;
 
-    public static void AddEmployee(Employee employee)
+    public static void AddEmployee(Employee? employee)
     {
         if (employee is not null)
         {
-            // ✅ Auto-generate ID
-            if (employee.Id <= 0)
-            {
-                employee.Id = employees.Max(e => e.Id) + 1;
-            }
             employees.Add(employee);
         }
     }
 
-    public static bool UpdateEmployee(Employee updatedEmployee)
+    public static bool UpdateEmployee(Employee? employee)
     {
-        if (updatedEmployee is null) return false;
-        
-        var existing = employees.FirstOrDefault(x => x.Id == updatedEmployee.Id);
-        if (existing is not null)
+        if (employee is not null && !string.IsNullOrEmpty(employee.Name))
         {
-            existing.Name = updatedEmployee.Name ?? existing.Name;
-            existing.Position = updatedEmployee.Position ?? existing.Position;
-            existing.Salary = updatedEmployee.Salary > 0 ? updatedEmployee.Salary : existing.Salary;
-            return true;
+            var emp = employees.FirstOrDefault(x => x.Id == employee.Id);
+            if (emp is not null)
+            {
+                emp.Name = employee.Name;
+                emp.Position = employee.Position ?? "Unknown"; // Default if null
+                emp.Salary = employee.Salary > 0 ? employee.Salary : 0;
+                return true;
+            }
         }
         return false;
     }
@@ -238,6 +204,7 @@ static class EmployeesRepository
             employees.Remove(employee);
             return true;
         }
+        
         return false;
     }
 }
@@ -245,15 +212,13 @@ static class EmployeesRepository
 public class Employee
 {
     public int Id { get; set; }
-    public string Name { get; set; } = string.Empty; // ✅ Default to avoid null
-    public string Position { get; set; } = string.Empty;
+    public string Name { get; set; }
+    public string Position { get; set; }
     public double Salary { get; set; }
-
-    public Employee() { } // ✅ Parameterless constructor for JSON deserialization
 
     public Employee(int id, string name, string position, double salary)
     {
-        Id = id; // ✅ Now ID is assigned
+        Id = id;
         Name = name;
         Position = position;
         Salary = salary;
