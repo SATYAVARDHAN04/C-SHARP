@@ -1,15 +1,13 @@
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using System;
+using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 app.Run(async (HttpContext context) =>
 {
-    // Step 1: Check HTTP method
-    if (context.Request.Method == "GET")
+    if(context.Request.Path.StartsWithSegments("/employees"))
     {
-        // Step 2: Route based on path (MOST SPECIFIC FIRST)
-        
-        // Route 1: /employees - Show employee list
-        if (context.Request.Path.StartsWithSegments("/employees"))
+        if (context.Request.Method == "GET")
         {
             var employees = EmployeesRepository.GetEmployees();
             
@@ -23,28 +21,7 @@ app.Run(async (HttpContext context) =>
                 );
             }
         }
-        // Route 2: / - Show home page
-        else if (context.Request.Path == "/")
-        {
-            await context.Response.WriteAsync($"The method is: {context.Request.Method}\r\n");
-            await context.Response.WriteAsync($"The Url is: {context.Request.Path}\r\n");
-            await context.Response.WriteAsync($"\r\nHeaders:\r\n");
-            
-            foreach (var key in context.Request.Headers.Keys)
-            {
-                await context.Response.WriteAsync($"{key}: {context.Request.Headers[key]}\r\n");
-            }
-        }
-        // Route 3: Everything else - 404 Not Found
-        else
-        {
-            context.Response.StatusCode = 404;
-            await context.Response.WriteAsync($"404 - Page '{context.Request.Path}' not found");
-        }
-    }
-    else if (context.Request.Method == "POST")
-    {
-        if (context.Request.Path.StartsWithSegments("/employees"))
+        else if(context.Request.Method == "POST")
         {
             try
             {
@@ -76,12 +53,100 @@ app.Run(async (HttpContext context) =>
                 await context.Response.WriteAsync("Invalid JSON format");
             }
         }
-    }
-    else
-    {
-        // Not a GET,POST request - return 405 Method Not Allowed
-        context.Response.StatusCode = 405;
-        await context.Response.WriteAsync("405 - Method Not Allowed. Only GET,POST requests are supported.");
+        else if(context.Request.Method == "PUT")
+        {
+            try
+            {
+                // 1. Read and deserialize
+                using var reader = new StreamReader(context.Request.Body);
+                var body = await reader.ReadToEndAsync();
+                var employee = JsonSerializer.Deserialize<Employee>(body);
+                
+                // 2. Validate
+                if (employee == null || employee.Id <= 0)
+                {
+                    context.Response.StatusCode = 400; // Bad Request
+                    await context.Response.WriteAsync("Invalid employee data");
+                    return;
+                }
+                
+                // 3. Attempt update
+                var result = EmployeesRepository.UpdateEmployee(employee);
+                
+                // 4. Send appropriate response
+                if (result)
+                {
+                    context.Response.StatusCode = 200; // OK
+                    context.Response.ContentType = "application/json";
+                    var json = JsonSerializer.Serialize(employee);
+                    await context.Response.WriteAsync(json);
+                }
+                else
+                {
+                    context.Response.StatusCode = 404; // Not Found
+                    await context.Response.WriteAsync($"Employee with ID {employee.Id} not found");
+                }
+            }
+            catch (JsonException)
+            {
+                context.Response.StatusCode = 400; // Bad Request
+                await context.Response.WriteAsync("Invalid JSON format");
+            }
+            catch (Exception ex)
+            {
+                context.Response.StatusCode = 500; // Internal Server Error
+                await context.Response.WriteAsync($"Error: {ex.Message}");
+            }
+        }
+        else if(context.Request.Method == "DELETE")
+        {
+            try
+            {
+                // 1. Check if ID parameter exists
+                if (!context.Request.Query.ContainsKey("id"))
+                {
+                    context.Response.StatusCode = 400; // Bad Request
+                    await context.Response.WriteAsync("Missing 'id' parameter. Use ?id=number");
+                    return;
+                }
+                
+                // 2. Get and parse ID
+                var id = context.Request.Query["id"].ToString();
+                if (!int.TryParse(id, out int employeeId))
+                {
+                    context.Response.StatusCode = 400; // Bad Request
+                    await context.Response.WriteAsync($"Invalid ID format: '{id}'. ID must be a number.");
+                    return;
+                }
+                
+                // 3. Attempt deletion
+                var result = EmployeesRepository.DeleteEmployee(employeeId);
+                
+                // 4. Send appropriate response
+                if (result)
+                {
+                    context.Response.StatusCode = 204; // No Content
+                    // 204 status usually doesn't have a body, but we'll keep it for learning
+                    await context.Response.WriteAsync($"Employee with ID {employeeId} deleted successfully.");
+                }
+                else
+                {
+                    context.Response.StatusCode = 404; // Not Found
+                    await context.Response.WriteAsync($"Employee with ID {employeeId} not found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                context.Response.StatusCode = 500; // Internal Server Error
+                await context.Response.WriteAsync($"Error: {ex.Message}");
+            }
+        }
+        else
+        {
+            // Not a GET,POST,PUT,DELETE request - return 405 Method Not Allowed
+            context.Response.StatusCode = 405;
+            await context.Response.WriteAsync("405 - Method Not Allowed. Only GET,POST,PUT,DELETE requests are supported.");
+        }
     }
 });
 
@@ -97,6 +162,42 @@ static class EmployeesRepository
     };
 
     public static List<Employee> GetEmployees() => employees;
+
+    public static void AddEmployee(Employee? employee)
+    {
+        if (employee is not null)
+        {
+            employees.Add(employee);
+        }
+    }
+
+    public static bool UpdateEmployee(Employee? employee)
+    {
+        if (employee is not null && !string.IsNullOrEmpty(employee.Name))
+        {
+            var emp = employees.FirstOrDefault(x => x.Id == employee.Id);
+            if (emp is not null)
+            {
+                emp.Name = employee.Name;
+                emp.Position = employee.Position ?? "Unknown"; // Default if null
+                emp.Salary = employee.Salary > 0 ? employee.Salary : 0;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static bool DeleteEmployee(int id)
+    {
+        var employee = employees.FirstOrDefault(x => x.Id == id);
+        if (employee is not null)
+        {
+            employees.Remove(employee);
+            return true;
+        }
+        
+        return false;
+    }
 }
 
 public class Employee
