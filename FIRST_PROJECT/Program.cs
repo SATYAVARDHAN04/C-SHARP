@@ -1,68 +1,53 @@
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
-using System.Text.Json;
-
 var builder = WebApplication.CreateBuilder(args);
-
 var app = builder.Build();
-
 app.Run(async (HttpContext context) =>
 {
+    // Step 1: Check HTTP method
     if (context.Request.Method == "GET")
     {
-        if (context.Request.Path.StartsWithSegments("/"))
+        // Step 2: Route based on path (MOST SPECIFIC FIRST)
+        
+        // Route 1: /employees - Show employee list
+        if (context.Request.Path.StartsWithSegments("/employees"))
+        {
+            var employees = EmployeesRepository.GetEmployees();
+            
+            await context.Response.WriteAsync("Employee List:\r\n");
+            await context.Response.WriteAsync("================\r\n");
+            
+            foreach (var employee in employees) 
+            {
+                await context.Response.WriteAsync(
+                    $"{employee.Id}. {employee.Name} - {employee.Position} (${employee.Salary})\r\n"
+                );
+            }
+        }
+        // Route 2: / - Show home page
+        else if (context.Request.Path == "/")
         {
             await context.Response.WriteAsync($"The method is: {context.Request.Method}\r\n");
             await context.Response.WriteAsync($"The Url is: {context.Request.Path}\r\n");
-
             await context.Response.WriteAsync($"\r\nHeaders:\r\n");
+            
             foreach (var key in context.Request.Headers.Keys)
             {
                 await context.Response.WriteAsync($"{key}: {context.Request.Headers[key]}\r\n");
             }
         }
-        else if (context.Request.Path.StartsWithSegments("/employees"))
+        // Route 3: Everything else - 404 Not Found
+        else
         {
-            var employees = EmployeesRepository.GetEmployees();
-
-            foreach (var employee in employees) 
-            {
-                await context.Response.WriteAsync($"{employee.Name}: {employee.Position}\r\n");
-            }
+            context.Response.StatusCode = 404;
+            await context.Response.WriteAsync($"404 - Page '{context.Request.Path}' not found");
         }
     }
-    else if (context.Request.Method == "POST")
+    else
     {
-        if (context.Request.Path.StartsWithSegments("/employees"))
-        {
-            using var reader = new StreamReader(context.Request.Body);
-            var body = await reader.ReadToEndAsync();
-            var employee = JsonSerializer.Deserialize<Employee>(body);
-
-            EmployeesRepository.AddEmployee(employee);
-            
-        }
+        // Not a GET request - return 405 Method Not Allowed
+        context.Response.StatusCode = 405;
+        await context.Response.WriteAsync("405 - Method Not Allowed. Only GET requests are supported.");
     }
-    else if (context.Request.Method == "PUT")
-    {
-        if (context.Request.Path.StartsWithSegments("/employees"))
-        {
-            using var reader = new StreamReader(context.Request.Body);
-            var body = await reader.ReadToEndAsync();
-            var employee = JsonSerializer.Deserialize<Employee>(body);
-
-            var result = EmployeesRepository.UpdateEmployee(employee);
-            if (result)
-            {
-                await context.Response.WriteAsync("Employee updated successfully.");
-            }
-            else
-            {
-                await context.Response.WriteAsync("Employee not found.");
-            }
-
-        }
-    }
-
 });
 
 app.Run();
@@ -77,32 +62,6 @@ static class EmployeesRepository
     };
 
     public static List<Employee> GetEmployees() => employees;
-
-    public static void AddEmployee(Employee? employee)
-    {
-        if (employee is not null)
-        {
-            employees.Add(employee);
-        }
-    }
-
-    public static bool UpdateEmployee(Employee? employee)
-    {
-        if (employee is not null)
-        {
-            var emp = employees.FirstOrDefault(x => x.Id == employee.Id);
-            if (emp is not null)
-            {
-                emp.Name = employee.Name;
-                emp.Position = employee.Position;
-                emp.Salary = employee.Salary;
-
-                return true;
-            }
-        }
-
-        return false;
-    }
 }
 
 public class Employee
