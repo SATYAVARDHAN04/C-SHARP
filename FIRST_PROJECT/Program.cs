@@ -148,6 +148,15 @@ app.Run(async (HttpContext context) =>
             await context.Response.WriteAsync("405 - Method Not Allowed. Only GET,POST,PUT,DELETE requests are supported.");
         }
     }
+    else if (context.Request.Path == "/")
+    {
+        await context.Response.WriteAsync("Welcome to Employee API");
+    }
+    else
+    {
+        context.Response.StatusCode = 404;
+        await context.Response.WriteAsync("Page not found");
+    }
 });
 
 app.Run();
