@@ -1,0 +1,80 @@
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+
+// 1. Logging Middleware
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"[{DateTime.Now}] Request: {context.Request.Method} {context.Request.Path}");
+    await next(context);
+    Console.WriteLine($"[{DateTime.Now}] Response: {context.Response.StatusCode}");
+});
+
+// 2. Exception Handling Middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next(context);
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsync($"Error: {ex.Message}");
+    }
+});
+
+// 3. Enable Routing
+app.UseRouting();
+
+// 4. Authorization Middleware (if needed)
+app.Use(async (context, next) =>
+{
+    // Check for API key in headers
+    if (!context.Request.Headers.ContainsKey("X-API-Key"))
+    {
+        context.Response.StatusCode = 401;
+        await context.Response.WriteAsync("API Key required");
+        return; // Short-circuit the pipeline
+    }
+    await next(context);
+});
+
+// 5. Define Endpoints
+app.UseEndpoints(endpoints =>
+{
+    // GET - List all employees
+    endpoints.MapGet("/employees", async (HttpContext context) =>
+    {
+        await context.Response.WriteAsync("GET: List of all employees");
+    });
+
+    // GET - Get employee by ID (FIXED: added route parameter)
+    endpoints.MapGet("/employees/{id}", async (HttpContext context) =>
+    {
+        var id = context.Request.RouteValues["id"];
+        await context.Response.WriteAsync($"GET: Employee with ID: {id}");
+    });
+
+    // POST - Create employee
+    endpoints.MapPost("/employees", async (HttpContext context) =>
+    {
+        // Read request body (would parse JSON)
+        await context.Response.WriteAsync("POST: Create a new employee");
+    });
+
+    // PUT - Update employee (FIXED: added route parameter)
+    endpoints.MapPut("/employees/{id}", async (HttpContext context) =>
+    {
+        var id = context.Request.RouteValues["id"];
+        await context.Response.WriteAsync($"PUT: Update employee with ID: {id}");
+    });
+
+    // DELETE - Delete employee
+    endpoints.MapDelete("/employees/{id}", async (HttpContext context) =>
+    {
+        var id = context.Request.RouteValues["id"];
+        await context.Response.WriteAsync($"DELETE: Remove employee with ID: {id}");
+    });
+});
+
+app.Run();
