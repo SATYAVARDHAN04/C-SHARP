@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Book Store</title>
+
+    <link rel="stylesheet" href="CSS/style.css">
+</head>
+
+<body>
+
+    <h1>My Book Store</h1>
+
+    <div class="book-form">
+
+        <input type="text" id="title" placeholder="Book Title">
+
+        <input type="text" id="author" placeholder="Author">
+
+        <input type="number" id="price" placeholder="Price">
+
+        <button onclick="addBook()">Add Book</button>
+
+    </div>
+
+
+    <h2>Books</h2>
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Price</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+
+        <tbody id="bookTable">
+        </tbody>
+
+    </table>
+
+
+    <script src="JS/script.js"></script>
+
+</body>
+</html>
