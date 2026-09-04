@@ -1,7 +1,7 @@
 import os
 
-# Create 100 empty C# files from Q1.cs to Q10.cs
-for i in range(1, 50):
+# Create 10 empty C# files from Q1.java to Q100.java
+for i in range(1, 10):
     filename = f"Q{i}.cs"
 
     # Create an empty file
